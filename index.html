@@ -352,13 +352,33 @@
             document.getElementById('picker-result').classList.remove('hidden');
 
             let count = 0;
-            const interval = setInterval(() => {
+            const interval = setInterval(async () => {
                 const randomQ = pending[Math.floor(Math.random() * pending.length)];
                 document.getElementById('picked-text').innerText = `"${randomQ.text}"`;
                 count++;
+
                 if (count >= 15) {
                     clearInterval(interval);
                     currentPickId = randomQ.id;
+
+                    // 1. Optimistic Update: Mark as OPENED
+                    const q = allQuestions.find(i => i.id === randomQ.id);
+                    if (q) {
+                        q.status = 'opened';
+                        renderStats(); // Unopened count drops
+                        renderList(); // Appears in feed
+                    }
+
+                    // 2. DB Update
+                    const { error } = await supabase.from('questions').update({ status: 'opened' }).eq('id', randomQ.id);
+                    if (error) {
+                        console.error("Pick error", error);
+                        // Revert
+                        if (q) q.status = 'pending';
+                        renderStats();
+                        renderList();
+                        showToast("Error updating status");
+                    }
                 }
             }, 80);
         };
