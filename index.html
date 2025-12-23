@@ -278,39 +278,39 @@
         let currentPickId = null;
 
         // --- INIT ---
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log("DOM Ready. Checking dependencies...");
+        // IMPLICIT INIT (Script at end of body)
+        console.log("Script initializing...");
 
-            // 1. Check Libraries
-            if (typeof window.supabase === 'undefined') {
-                console.error("CRITICAL: Supabase Global Undefined");
-                errorToast("Database library missing. Check connection.");
-                return;
-            }
+        // 1. Check Libraries
+        if (typeof window.supabase === 'undefined') {
+            console.error("CRITICAL: Supabase Global Undefined");
+            errorToast("Database library missing. Check connection.");
+        }
 
-            // 2. Connect
-            try {
+        // 2. Connect
+        try {
+            if (window.supabase) {
                 supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
                 console.log("Supabase Client Created");
                 initSync();
-            } catch (e) {
-                console.error("Supabase Init Error", e);
-                errorToast("Error connecting to database");
             }
+        } catch (e) {
+            console.error("Supabase Init Error", e);
+            errorToast("Error connecting to database");
+        }
 
-            // 3. Visuals
-            createSnow();
-            checkLucide();
+        // 3. Visuals
+        createSnow();
+        checkLucide();
 
-            // 4. Attach Globals (Explicitly)
-            window.switchView = switchView;
-            window.submitQuestion = submitQuestion;
-            window.checkPasscode = checkPasscode;
-            window.lockHost = lockHost;
-            window.pickQuestion = pickQuestion;
-            window.markAnswered = markAnswered;
-            window.deleteQ = deleteQ;
-        });
+        // 4. Attach Globals (Explicitly)
+        window.switchView = switchView;
+        window.submitQuestion = submitQuestion;
+        window.checkPasscode = checkPasscode;
+        window.lockHost = lockHost;
+        window.pickQuestion = pickQuestion;
+        window.markAnswered = markAnswered;
+        window.deleteQ = deleteQ;
 
         function checkLucide() {
             if (typeof lucide !== 'undefined') {
