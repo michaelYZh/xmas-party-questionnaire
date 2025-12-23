@@ -145,8 +145,8 @@
             position: fixed;
             width: 300px;
             pointer-events: none;
-            z-index: 50;
-            /* Ensure visible on top */
+            z-index: 60;
+            /* Higher than nav (50) to ensure visibility */
             display: none;
             /* Hidden by default */
             filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.2));
@@ -465,16 +465,14 @@
         function initSanta() {
             const santa = document.getElementById('santa-wrapper');
 
-            // Try to fly every 30-120 seconds
+            // Fly every 5-10 seconds
             const fly = () => {
-                // Random time between 30 and 120 seconds
-                // For demo, making it slightly more frequent? No, keeping as requested/random
-                const delay = (Math.random() * 90 + 30) * 1000;
+                // Random time calculated for next flight
 
-                // Randomize flight details
+                // Randomize flight details for THIS flight
                 const isRight = Math.random() > 0.5;
                 const topPos = 5 + Math.random() * 25; // Random height 5-30%
-                const duration = 8000 + Math.random() * 4000; // 8-12 seconds
+                const duration = 8000 + Math.random() * 4000; // 8-12 seconds duration
 
                 santa.style.top = `${topPos}%`;
                 santa.style.animationDuration = `${duration}ms`;
@@ -498,12 +496,13 @@
             };
 
             const scheduleNext = () => {
-                const delay = (Math.random() * 90 + 30) * 1000;
+                // Wait 5-10 seconds BEFORE flying again
+                const delay = (Math.random() * 5000 + 5000);
                 setTimeout(fly, delay);
             };
 
             // First flight soon!
-            setTimeout(fly, 5000 + Math.random() * 5000);
+            setTimeout(fly, 2000 + Math.random() * 3000);
         }
 
         // === REALTIME ===
