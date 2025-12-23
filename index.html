@@ -300,18 +300,41 @@
             btn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Sending...`;
             if (window.lucide) window.lucide.createIcons();
 
-            const { error } = await supabase
+            // Optimistic Update
+            const tempId = 'temp-' + Date.now();
+            const tempQ = { id: tempId, text: text, status: 'pending', created_at: new Date().toISOString() };
+            allQuestions.unshift(tempQ); // Add to top
+            renderStats(); // Update fake count immediately
+
+            const { data, error } = await supabase
                 .from('questions')
-                .insert([{ text: text, status: 'pending' }]);
+                .insert([{ text: text, status: 'pending' }])
+                .select(); // Get back the real ID
 
             if (error) {
                 console.error("Submit error", error);
                 showToast("Connection failed. Try again!");
                 btn.innerHTML = `<i data-lucide="x-circle" class="w-5 h-5"></i> Failed`;
+
+                // Revert optimistic update
+                allQuestions = allQuestions.filter(q => q.id !== tempId);
+                renderStats();
             } else {
+                // Replace temp with real data
+                if (data && data[0]) {
+                    const realQ = data[0];
+                    const idx = allQuestions.findIndex(q => q.id === tempId);
+                    if (idx !== -1) {
+                        allQuestions[idx] = realQ;
+                    }
+                }
+
                 input.value = '';
                 showToast("🎁 Gift dropped in the bag!");
                 btn.innerHTML = `<i data-lucide="check" class="w-5 h-5"></i> Sent!`;
+                // Stats already updated, but ensuring proper re-render
+                renderStats();
+                renderList();
             }
 
             setTimeout(() => {
