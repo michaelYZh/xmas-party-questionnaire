@@ -80,7 +80,7 @@
             <div class="bg-red-600 p-1.5 rounded-lg shadow-lg rotate-[-3deg]">
                 <i data-lucide="gift" class="w-5 h-5 fill-red-600 text-white"></i>
             </div>
-            <span class="tracking-tight text-white/90">Jiaxin's Xmas</span>
+            <span class="tracking-tight text-white/90">Jiaxin's Xmas Party</span>
         </div>
         <div class="flex bg-black/30 p-1 rounded-xl border border-white/10">
             <button onclick="switchView('guest')" id="btn-guest"
@@ -518,8 +518,9 @@
                 container.innerHTML = `<div class="text-center py-10 bg-black/10 rounded-2xl border border-white/5"><p class="text-slate-500 italic text-sm">Waiting for Santa to pick a question...</p></div>`;
                 return;
             }
-            container.innerHTML = visibleQuestions.map(q => `
-                <div class="glass p-4 rounded-xl flex justify-between items-start gap-3 transition-all ${q.status === 'answered' ? 'opacity-40 bg-black/20' : 'bg-white/5'}">
+            // Staggered Animation
+            container.innerHTML = visibleQuestions.map((q, i) => `
+                <div class="glass p-4 rounded-xl flex justify-between items-start gap-3 transition-all animate__animated animate__fadeInUp ${q.status === 'answered' ? 'opacity-40 bg-black/20' : 'bg-white/5'}" style="animation-delay: ${i * 100}ms">
                     <p class="text-sm font-medium leading-relaxed ${q.status === 'answered' ? 'line-through text-slate-400' : 'text-white'}">${q.text}</p>
                     <div class="flex items-center gap-2 shrink-0">
                          <button onclick="maskQ(${q.id})" title="Put back in bag" class="text-white/20 hover:text-yellow-400 transition-colors p-1"><i data-lucide="eye-off" class="w-4 h-4"></i></button>
