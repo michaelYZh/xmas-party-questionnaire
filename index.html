@@ -274,10 +274,17 @@
                 .select('*')
                 .order('created_at', { ascending: false });
 
+            if (error) {
+                console.error("Fetch Error:", error);
+                // Don't show toast on load to avoid spam, but log it
+            }
+
             if (data) {
                 allQuestions = data;
                 renderStats();
                 renderList();
+            } else {
+                console.warn("Fetch returned no data");
             }
         }
 
@@ -335,7 +342,27 @@
 
         window.markAnswered = async () => {
             if (!currentPickId) return;
-            await supabase.from('questions').update({ status: 'answered' }).eq('id', currentPickId);
+
+            // Optimistic Update
+            const q = allQuestions.find(q => q.id === currentPickId);
+            if (q) {
+                q.status = 'answered';
+                renderStats();
+                renderList();
+            }
+
+            const { error } = await supabase.from('questions').update({ status: 'answered' }).eq('id', currentPickId);
+
+            if (error) {
+                console.error("Update Error:", error);
+                showToast("Update failed! check RLS policies.");
+                // Revert if failed
+                if (q) q.status = 'pending';
+                renderStats();
+                renderList();
+                return;
+            }
+
             document.getElementById('picker-result').classList.add('hidden');
             document.getElementById('picker-idle').classList.remove('hidden');
             currentPickId = null;
@@ -343,7 +370,21 @@
 
         window.deleteQ = async (id) => {
             if (confirm("Are you sure?")) {
-                await supabase.from('questions').delete().eq('id', id);
+                // Optimistic Update (Remove from UI immediately)
+                const originalList = [...allQuestions];
+                allQuestions = allQuestions.filter(q => q.id !== id);
+                renderStats();
+                renderList();
+
+                const { error } = await supabase.from('questions').delete().eq('id', id);
+                if (error) {
+                    console.error("Delete Error:", error);
+                    showToast("Delete failed! Check RLS policies.");
+                    // Revert
+                    allQuestions = originalList;
+                    renderStats();
+                    renderList();
+                }
             }
         };
 
