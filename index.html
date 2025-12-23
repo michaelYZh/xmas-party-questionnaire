@@ -411,6 +411,28 @@
             currentPickId = null;
         };
 
+        window.maskQ = async (id) => {
+            // Optimistic Update: Set back to PENDING (removes from feed)
+            const q = allQuestions.find(q => q.id === id);
+            if (q) {
+                const oldStatus = q.status;
+                q.status = 'pending';
+                renderStats(); // Unopened count goes UP
+                renderList(); // Disappears from feed
+
+                const { error } = await supabase.from('questions').update({ status: 'pending' }).eq('id', id);
+
+                if (error) {
+                    console.error("Mask Error:", error);
+                    showToast("Mask failed! Check RLS policies.");
+                    // Revert
+                    q.status = oldStatus;
+                    renderStats();
+                    renderList();
+                }
+            }
+        };
+
         window.deleteQ = async (id) => {
             if (confirm("Are you sure?")) {
                 // Optimistic Update (Remove from UI immediately)
@@ -499,7 +521,10 @@
             container.innerHTML = visibleQuestions.map(q => `
                 <div class="glass p-4 rounded-xl flex justify-between items-start gap-3 transition-all ${q.status === 'answered' ? 'opacity-40 bg-black/20' : 'bg-white/5'}">
                     <p class="text-sm font-medium leading-relaxed ${q.status === 'answered' ? 'line-through text-slate-400' : 'text-white'}">${q.text}</p>
-                    <button onclick="deleteQ(${q.id})" class="text-white/20 hover:text-red-500 transition-colors p-1 shrink-0"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    <div class="flex items-center gap-2 shrink-0">
+                         <button onclick="maskQ(${q.id})" title="Put back in bag" class="text-white/20 hover:text-yellow-400 transition-colors p-1"><i data-lucide="eye-off" class="w-4 h-4"></i></button>
+                         <button onclick="deleteQ(${q.id})" title="Delete" class="text-white/20 hover:text-red-500 transition-colors p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </div>
                 </div>
             `).join('');
             if (window.lucide) window.lucide.createIcons();
