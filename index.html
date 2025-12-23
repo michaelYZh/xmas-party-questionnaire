@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Jiaxin's Christmas Party</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Animation Library -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Supabase Client (Works globally) -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+
+    <style>
+        /* System fonts load instantly anywhere */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0b2d1c;
+            color: white;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Glassmorphism Effect */
+        .glass {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Snow Animation */
+        .snow-flake {
+            position: absolute;
+            top: -20px;
+            color: rgba(255, 255, 255, 0.2);
+            pointer-events: none;
+            z-index: 0;
+            animation: fall linear infinite;
+        }
+
+        @keyframes fall {
+            to {
+                transform: translateY(105vh);
+            }
+        }
+
+        /* Utilities */
+        .shake {
+            animation: shake 0.4s;
+        }
+
+        @keyframes shake {
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            25% {
+                transform: translateX(-8px);
+            }
+
+            75% {
+                transform: translateX(8px);
+            }
+        }
+
+        .btn-active:active {
+            transform: scale(0.96);
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Background Snow -->
+    <div id="snow-container" class="fixed inset-0 pointer-events-none z-0"></div>
+
+    <!-- Navigation Bar -->
+    <nav
+        class="sticky top-0 z-50 bg-[#14422b]/95 backdrop-blur-md border-b border-white/10 px-6 py-4 flex justify-between items-center relative z-10">
+        <div class="flex items-center gap-3 font-bold text-lg text-red-500">
+            <div class="bg-red-600 p-1.5 rounded-lg shadow-lg rotate-[-3deg]">
+                <i data-lucide="gift" class="w-5 h-5 fill-red-600 text-white"></i>
+            </div>
+            <span class="tracking-tight text-white/90">Jiaxin's Xmas</span>
+        </div>
+
+        <div class="flex bg-black/30 p-1 rounded-xl border border-white/10">
+            <button onclick="switchView('guest')" id="btn-guest"
+                class="px-5 py-2 rounded-lg text-xs font-bold transition-all bg-red-600 text-white shadow-lg">Ask</button>
+            <button onclick="switchView('host')" id="btn-host"
+                class="px-5 py-2 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white">Host</button>
+        </div>
+    </nav>
+
+    <main class="max-w-xl mx-auto px-6 py-8 relative z-10">
+
+        <!-- SETUP WARNING (Visible only if keys are missing) -->
+        <div id="setup-warning"
+            class="hidden glass p-6 rounded-2xl border-l-4 border-yellow-400 mb-8 animate__animated animate__fadeInDown">
+            <h3 class="font-bold text-yellow-400 flex items-center gap-2"><i data-lucide="alert-triangle"
+                    class="w-4 h-4"></i> Setup Required</h3>
+            <p class="text-sm text-slate-300 mt-1">You need to edit this file and add your Supabase URL & Key.</p>
+        </div>
+
+        <!-- ================= GUEST VIEW ================= -->
+        <div id="view-guest" class="space-y-8 animate__animated animate__fadeIn">
+            <div class="text-center space-y-4 pt-4">
+                <div class="relative inline-block">
+                    <i data-lucide="star" class="w-12 h-12 text-yellow-400 fill-yellow-400 mx-auto animate-pulse"></i>
+                    <div class="absolute inset-0 bg-yellow-400 blur-xl opacity-20"></div>
+                </div>
+                <h1 class="text-5xl font-black tracking-tighter italic text-white drop-shadow-lg">Ask Anything!</h1>
+                <p class="text-emerald-200/80 text-lg px-4 leading-relaxed">
+                    Ask anything you want. It's <span
+                        class="text-white font-bold underline decoration-red-500 decoration-4 underline-offset-4">100%
+                        anonymous</span>. Let's make this party interesting!
+                </p>
+            </div>
+
+            <div class="glass p-1 rounded-[2.5rem] shadow-2xl">
+                <div class="bg-black/20 p-8 rounded-[2.3rem] space-y-6">
+                    <div class="space-y-2">
+                        <label
+                            class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest ml-2 flex items-center gap-1">
+                            <i data-lucide="message-square" class="w-3 h-3"></i> Your Secret Question
+                        </label>
+                        <textarea id="question-input"
+                            placeholder="Drop a truth, a funny question, or a holiday secret..."
+                            class="w-full h-40 p-5 rounded-2xl bg-black/40 border border-white/5 focus:border-red-500/50 focus:ring-1 focus:ring-red-500 transition-all text-xl text-white placeholder:text-slate-600 resize-none outline-none"></textarea>
+                    </div>
+                    <button onclick="submitQuestion()" id="submit-btn"
+                        class="btn-active w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-black py-5 rounded-2xl flex items-center justify-center gap-3 transition-all shadow-xl shadow-red-900/40 text-lg uppercase tracking-wide">
+                        <i data-lucide="send" class="w-5 h-5"></i> Drop in the Bag
+                    </button>
+                </div>
+            </div>
+
+            <p class="text-center text-xs text-emerald-200/30 italic">
+                Connection secured by North Pole Encryption™
+            </p>
+        </div>
+
+        <!-- ================= HOST LOCK SCREEN ================= -->
+        <div id="view-host-lock" class="hidden py-16 space-y-8 animate__animated animate__zoomIn text-center">
+            <div
+                class="w-24 h-24 bg-red-600 rounded-full flex items-center justify-center mx-auto shadow-[0_0_40px_rgba(220,38,38,0.4)]">
+                <i data-lucide="lock" class="w-10 h-10 text-white"></i>
+            </div>
+            <div>
+                <h2 class="text-3xl font-black italic">Santa's Access Only</h2>
+                <p class="text-emerald-200/60 mt-2">Enter the secret passcode to manage the pool.</p>
+            </div>
+            <div class="max-w-xs mx-auto space-y-4">
+                <input type="password" id="passcode-input" placeholder="Passcode"
+                    class="w-full bg-black/40 border-2 border-white/10 rounded-2xl px-6 py-4 text-center text-2xl font-black focus:border-red-500 outline-none text-white tracking-[0.2em]">
+                <button onclick="checkPasscode()"
+                    class="btn-active w-full bg-white text-[#0b2d1c] font-black py-4 rounded-2xl hover:bg-slate-200 transition-colors uppercase tracking-widest text-sm">
+                    Unlock Panel
+                </button>
+            </div>
+        </div>
+
+        <!-- ================= HOST DASHBOARD ================= -->
+        <div id="view-host-panel" class="hidden space-y-8 animate__animated animate__fadeIn">
+            <div class="flex justify-between items-center bg-black/20 p-4 rounded-2xl border border-white/5">
+                <h2 class="text-xl font-black italic flex items-center gap-2">
+                    <i data-lucide="layout-dashboard" class="text-emerald-400 w-5 h-5"></i> Host Panel
+                </h2>
+                <button onclick="lockHost()"
+                    class="text-[10px] uppercase font-bold text-red-400 border border-red-400/30 px-3 py-1.5 rounded-full hover:bg-red-900/20 transition-colors">
+                    Lock Session
+                </button>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-2 gap-4">
+                <div class="glass p-6 rounded-3xl text-center relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 p-4 opacity-10"><i data-lucide="database" class="w-12 h-12"></i>
+                    </div>
+                    <div class="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">Total Collected</div>
+                    <div id="stats-total" class="text-5xl font-black mt-2 tracking-tighter">0</div>
+                </div>
+                <div class="glass p-6 rounded-3xl text-center relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-4 opacity-10 text-red-500"><i data-lucide="gift"
+                            class="w-12 h-12"></i></div>
+                    <div class="text-[10px] text-red-400 font-bold uppercase tracking-widest">Unopened</div>
+                    <div id="stats-pending" class="text-5xl font-black mt-2 tracking-tighter text-red-500">0</div>
+                </div>
+            </div>
+
+            <!-- The Picker Card -->
+            <div id="picker-card"
+                class="bg-gradient-to-br from-red-600 to-red-800 p-1 rounded-[2.5rem] shadow-2xl relative overflow-hidden min-h-[340px] flex flex-col justify-center">
+                <!-- Inner Container -->
+                <div
+                    class="bg-black/10 w-full h-full rounded-[2.3rem] p-8 flex flex-col items-center justify-center backdrop-blur-sm">
+
+                    <!-- Idle State -->
+                    <div id="picker-idle" class="space-y-6 text-center w-full">
+                        <div
+                            class="bg-white/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto border border-white/20 shadow-inner">
+                            <i data-lucide="shuffle" class="w-10 h-10 text-white"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-2xl font-black italic">Ready to Pick?</h3>
+                            <p class="text-red-100/80 text-sm mt-1 font-medium">Randomly select from the bag.</p>
+                        </div>
+                        <button onclick="pickQuestion()"
+                            class="btn-active bg-white text-red-700 px-10 py-4 rounded-2xl font-black text-lg shadow-xl shadow-black/20 hover:scale-105 transition-all w-full">
+                            SELECT RANDOM 🎄
+                        </button>
+                    </div>
+
+                    <!-- Result State -->
+                    <div id="picker-result"
+                        class="hidden space-y-8 text-center w-full animate__animated animate__jackInTheBox">
+                        <div
+                            class="inline-flex items-center gap-2 bg-yellow-400/20 border border-yellow-400/40 px-3 py-1 rounded-full">
+                            <i data-lucide="sparkles" class="w-3 h-3 text-yellow-300"></i>
+                            <span class="text-[10px] font-black text-yellow-300 uppercase tracking-widest">The Chosen
+                                One</span>
+                        </div>
+
+                        <h2 id="picked-text"
+                            class="text-2xl md:text-3xl font-black leading-tight italic drop-shadow-md min-h-[80px] flex items-center justify-center">
+                            "..."
+                        </h2>
+
+                        <div class="grid grid-cols-2 gap-3 w-full">
+                            <button onclick="markAnswered()"
+                                class="bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-bold text-sm shadow-lg transition-colors flex items-center justify-center gap-2">
+                                <i data-lucide="check" class="w-4 h-4"></i> Mark Done
+                            </button>
+                            <button onclick="pickQuestion()"
+                                class="bg-white/10 hover:bg-white/20 border border-white/20 text-white py-3 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2">
+                                <i data-lucide="shuffle" class="w-4 h-4"></i> Re-Roll
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- List Feed -->
+            <div class="space-y-4 pb-20">
+                <div class="flex items-center gap-2 px-2">
+                    <i data-lucide="list" class="w-4 h-4 text-emerald-400"></i>
+                    <h3 class="text-xs font-bold uppercase tracking-widest text-emerald-400">Live Feed</h3>
+                </div>
+                <div id="question-list" class="space-y-3"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Notification Toast -->
+    <div id="toast"
+        class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-white text-[#0b2d1c] px-6 py-4 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.5)] hidden z-[100] font-black italic items-center gap-3 animate__animated animate__slideInUp border-2 border-emerald-500 min-w-[300px] justify-center">
+        <i data-lucide="check-circle-2" class="w-6 h-6 text-emerald-600"></i>
+        <span id="toast-msg">Success!</span>
+    </div>
+
+    <!-- MAIN LOGIC -->
+    <script>
+        // ==========================================
+        // 🚨 STEP 1: REPLACE THESE TWO LINES 🚨
+        // ==========================================
+        const SUPABASE_URL = 'https://xvepmfhfkxrxhyftfqts.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_LUotqKU7-6Q1RPNbzyxBAQ_eR9xJwoo';
+
+        const HOST_CODE = "Jiaxin2025";
+        // ==========================================
+
+        let supabase = null;
+        let allQuestions = [];
+        let currentPickId = null;
+
+        // 1. Initialize Application
+        document.addEventListener('DOMContentLoaded', () => {
+            if (SUPABASE_URL.includes('YOUR_SUPABASE_URL')) {
+                document.getElementById('setup-warning').classList.remove('hidden');
+            } else {
+                try {
+                    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                    initSync();
+                } catch (e) {
+                    console.error("Supabase Init Error", e);
+                    showToast("Error connecting to database");
+                }
+            }
+            createSnow();
+            lucide.createIcons();
+        });
+
+        // 2. Sync Logic (Realtime)
+        function initSync() {
+            // Initial Fetch
+            fetchData();
+
+            // Realtime Subscription
+            supabase.channel('public:questions')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'questions' }, payload => {
+                    fetchData(); // Refresh whenever data changes
+                })
+                .subscribe();
+        }
+
+        async function fetchData() {
+            const { data, error } = await supabase
+                .from('questions')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (data) {
+                allQuestions = data;
+                renderStats();
+                renderList();
+            }
+        }
+
+        // 3. User Actions
+        async function submitQuestion() {
+            const input = document.getElementById('question-input');
+            const text = input.value.trim();
+            const btn = document.getElementById('submit-btn');
+
+            if (!text) return;
+
+            // Loading State
+            btn.disabled = true;
+            btn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Sending...`;
+            lucide.createIcons();
+
+            const { error } = await supabase
+                .from('questions')
+                .insert([{ text: text, status: 'pending' }]);
+
+            if (error) {
+                showToast("Connection failed. Try again!");
+                btn.innerHTML = `<i data-lucide="x-circle" class="w-5 h-5"></i> Failed`;
+            } else {
+                input.value = '';
+                showToast("🎁 Gift dropped in the bag!");
+                btn.innerHTML = `<i data-lucide="check" class="w-5 h-5"></i> Sent!`;
+            }
+
+            // Reset Button
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.innerHTML = `<i data-lucide="send" class="w-5 h-5"></i> Drop in the Bag`;
+                lucide.createIcons();
+            }, 2000);
+        }
+
+        // 4. Host Logic
+        window.pickQuestion = () => {
+            const pending = allQuestions.filter(q => q.status === 'pending');
+
+            if (pending.length === 0) return showToast("The bag is empty! 🎅");
+
+            // UI Transition
+            document.getElementById('picker-idle').classList.add('hidden');
+            document.getElementById('picker-result').classList.remove('hidden');
+
+            // Animation Loop
+            let count = 0;
+            const maxCount = 15;
+            const interval = setInterval(() => {
+                const randomQ = pending[Math.floor(Math.random() * pending.length)];
+                document.getElementById('picked-text').innerText = `"${randomQ.text}"`;
+                count++;
+
+                if (count >= maxCount) {
+                    clearInterval(interval);
+                    currentPickId = randomQ.id;
+                }
+            }, 80);
+        };
+
+        async function markAnswered() {
+            if (!currentPickId) return;
+
+            await supabase
+                .from('questions')
+                .update({ status: 'answered' })
+                .eq('id', currentPickId);
+
+            // Reset UI
+            document.getElementById('picker-result').classList.add('hidden');
+            document.getElementById('picker-idle').classList.remove('hidden');
+            currentPickId = null;
+        }
+
+        async function deleteQ(id) {
+            if (confirm("Are you sure you want to delete this?")) {
+                await supabase.from('questions').delete().eq('id', id);
+            }
+        }
+
+        // 5. UI Helpers
+        function renderStats() {
+            const total = allQuestions.length;
+            const pending = allQuestions.filter(q => q.status === 'pending').length;
+
+            document.getElementById('stats-total').innerText = total;
+            document.getElementById('stats-pending').innerText = pending;
+        }
+
+        function renderList() {
+            const container = document.getElementById('question-list');
+
+            if (allQuestions.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-10 bg-black/10 rounded-2xl border border-white/5">
+                        <p class="text-slate-500 italic text-sm">No questions in the bag yet...</p>
+                    </div>`;
+                return;
+            }
+
+            container.innerHTML = allQuestions.map(q => `
+                <div class="glass p-4 rounded-xl flex justify-between items-start gap-3 transition-all ${q.status === 'answered' ? 'opacity-40 bg-black/20' : 'bg-white/5'}">
+                    <p class="text-sm font-medium leading-relaxed ${q.status === 'answered' ? 'line-through text-slate-400' : 'text-white'}">
+                        ${q.text}
+                    </p>
+                    <button onclick="deleteQ(${q.id})" class="text-white/20 hover:text-red-500 transition-colors p-1 shrink-0">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            `).join('');
+
+            lucide.createIcons();
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = msg;
+            t.classList.remove('hidden');
+            t.classList.add('flex');
+            setTimeout(() => {
+                t.classList.remove('flex');
+                t.classList.add('hidden');
+            }, 3000);
+        }
+
+        // 6. Navigation & Auth
+        window.switchView = (view) => {
+            const guestView = document.getElementById('view-guest');
+            const hostLock = document.getElementById('view-host-lock');
+            const hostPanel = document.getElementById('view-host-panel');
+            const btnGuest = document.getElementById('btn-guest');
+            const btnHost = document.getElementById('btn-host');
+
+            // Reset
+            guestView.classList.add('hidden');
+            hostLock.classList.add('hidden');
+            hostPanel.classList.add('hidden');
+            btnGuest.className = "px-5 py-2 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white";
+            btnHost.className = "px-5 py-2 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white";
+
+            if (view === 'guest') {
+                guestView.classList.remove('hidden');
+                btnGuest.className = "px-5 py-2 rounded-lg text-xs font-bold transition-all bg-red-600 text-white shadow-lg";
+            } else {
+                btnHost.className = "px-5 py-2 rounded-lg text-xs font-bold transition-all bg-red-600 text-white shadow-lg";
+                if (sessionStorage.getItem('host_unlocked')) {
+                    hostPanel.classList.remove('hidden');
+                } else {
+                    hostLock.classList.remove('hidden');
+                }
+            }
+        };
+
+        window.checkPasscode = () => {
+            const input = document.getElementById('passcode-input');
+            if (input.value === HOST_CODE) {
+                sessionStorage.setItem('host_unlocked', 'true');
+                switchView('host');
+            } else {
+                input.classList.add('shake');
+                input.value = '';
+                showToast("Wrong Passcode! 🍪");
+                setTimeout(() => input.classList.remove('shake'), 500);
+            }
+        };
+
+        window.lockHost = () => {
+            sessionStorage.removeItem('host_unlocked');
+            switchView('host');
+        };
+
+        // 7. Snow Effect
+        function createSnow() {
+            const container = document.getElementById('snow-container');
+            const count = 30;
+            for (let i = 0; i < count; i++) {
+                const flake = document.createElement('div');
+                flake.className = 'snow-flake';
+                flake.innerHTML = '❄';
+                flake.style.left = Math.random() * 100 + 'vw';
+                flake.style.animationDuration = (Math.random() * 10 + 10) + 's';
+                flake.style.animationDelay = (Math.random() * 10) + 's';
+                flake.style.opacity = Math.random() * 0.3;
+                flake.style.fontSize = (Math.random() * 20 + 10) + 'px';
+                container.appendChild(flake);
+            }
+        }
+    </script>
+</body>
+
+</html>
