@@ -264,7 +264,264 @@
     </div>
 
     <!-- MAIN LOGIC -->
-    <script src="script.js"></script>
+    <script>
+        console.log("🎄 Script booting up...");
+
+        // --- CONFIG ---
+        const SUPABASE_URL = 'https://xvepmfhfkxrxhyftfqts.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_LUotqKU7-6Q1RPNbzyxBAQ_eR9xJwoo';
+        const HOST_CODE = "Jiaxin2025";
+
+        // --- STATE ---
+        let supabase = null;
+        let allQuestions = [];
+        let currentPickId = null;
+
+        // --- INIT ---
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("DOM Ready. Checking dependencies...");
+
+            // 1. Check Libraries
+            if (typeof window.supabase === 'undefined') {
+                console.error("CRITICAL: Supabase Global Undefined");
+                errorToast("Database library missing. Check connection.");
+                return;
+            }
+
+            // 2. Connect
+            try {
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                console.log("Supabase Client Created");
+                initSync();
+            } catch (e) {
+                console.error("Supabase Init Error", e);
+                errorToast("Error connecting to database");
+            }
+
+            // 3. Visuals
+            createSnow();
+            checkLucide();
+
+            // 4. Attach Globals (Explicitly)
+            window.switchView = switchView;
+            window.submitQuestion = submitQuestion;
+            window.checkPasscode = checkPasscode;
+            window.lockHost = lockHost;
+            window.pickQuestion = pickQuestion;
+            window.markAnswered = markAnswered;
+            window.deleteQ = deleteQ;
+        });
+
+        function checkLucide() {
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            } else {
+                setTimeout(checkLucide, 500);
+            }
+        }
+
+        // --- REALTIME ---
+        function initSync() {
+            fetchData();
+            supabase.channel('public:questions')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'questions' }, payload => {
+                    console.log("DB Change:", payload);
+                    fetchData();
+                })
+                .subscribe();
+        }
+
+        async function fetchData() {
+            const { data, error } = await supabase
+                .from('questions')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (data) {
+                allQuestions = data;
+                renderStats();
+                renderList();
+            }
+        }
+
+        // --- ACTIONS ---
+        async function submitQuestion() {
+            const input = document.getElementById('question-input');
+            const text = input.value.trim();
+            const btn = document.getElementById('submit-btn');
+
+            if (!text) return;
+
+            // Loading
+            btn.disabled = true;
+            btn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Sending...`;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+
+            const { error } = await supabase
+                .from('questions')
+                .insert([{ text: text, status: 'pending' }]);
+
+            if (error) {
+                errorToast("Connection failed. Try again!");
+                btn.innerHTML = `<i data-lucide="x-circle" class="w-5 h-5"></i> Failed`;
+            } else {
+                input.value = '';
+                showToast("🎁 Gift dropped in the bag!");
+                btn.innerHTML = `<i data-lucide="check" class="w-5 h-5"></i> Sent!`;
+            }
+
+            // Reset
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.innerHTML = `<i data-lucide="send" class="w-5 h-5"></i> Drop in the Bag`;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }, 2000);
+        }
+
+        // --- NAVIGATION ---
+        function switchView(view) {
+            console.log("Switching view to:", view);
+            const guestView = document.getElementById('view-guest');
+            const hostLock = document.getElementById('view-host-lock');
+            const hostPanel = document.getElementById('view-host-panel');
+            const btnGuest = document.getElementById('btn-guest');
+            const btnHost = document.getElementById('btn-host');
+
+            // Hide All
+            guestView.classList.add('hidden');
+            hostLock.classList.add('hidden');
+            hostPanel.classList.add('hidden');
+
+            // Reset Tabs
+            btnGuest.className = "px-5 py-2 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white";
+            btnHost.className = "px-5 py-2 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white";
+
+            if (view === 'guest') {
+                guestView.classList.remove('hidden');
+                btnGuest.className = "px-5 py-2 rounded-lg text-xs font-bold transition-all bg-red-600 text-white shadow-lg";
+            } else {
+                btnHost.className = "px-5 py-2 rounded-lg text-xs font-bold transition-all bg-red-600 text-white shadow-lg";
+                if (sessionStorage.getItem('host_unlocked')) {
+                    hostPanel.classList.remove('hidden');
+                } else {
+                    hostLock.classList.remove('hidden');
+                }
+            }
+        }
+
+        function checkPasscode() {
+            const input = document.getElementById('passcode-input');
+            if (input.value === HOST_CODE) {
+                sessionStorage.setItem('host_unlocked', 'true');
+                switchView('host');
+            } else {
+                input.classList.add('shake');
+                input.value = '';
+                errorToast("Wrong Passcode! 🍪");
+                setTimeout(() => input.classList.remove('shake'), 500);
+            }
+        }
+
+        function lockHost() {
+            sessionStorage.removeItem('host_unlocked');
+            switchView('host');
+        }
+
+        // --- HOST LOGIC ---
+        function pickQuestion() {
+            const pending = allQuestions.filter(q => q.status === 'pending');
+
+            if (pending.length === 0) return errorToast("The bag is empty! 🎅");
+
+            document.getElementById('picker-idle').classList.add('hidden');
+            document.getElementById('picker-result').classList.remove('hidden');
+
+            let count = 0;
+            const maxCount = 15;
+            const interval = setInterval(() => {
+                const randomQ = pending[Math.floor(Math.random() * pending.length)];
+                document.getElementById('picked-text').innerText = `"${randomQ.text}"`;
+                count++;
+
+                if (count >= maxCount) {
+                    clearInterval(interval);
+                    currentPickId = randomQ.id;
+                }
+            }, 80);
+        }
+
+        async function markAnswered() {
+            if (!currentPickId) return;
+            await supabase.from('questions').update({ status: 'answered' }).eq('id', currentPickId);
+            document.getElementById('picker-result').classList.add('hidden');
+            document.getElementById('picker-idle').classList.remove('hidden');
+            currentPickId = null;
+        }
+
+        async function deleteQ(id) {
+            if (confirm("Are you sure?")) {
+                await supabase.from('questions').delete().eq('id', id);
+            }
+        }
+
+        // --- RENDERERS ---
+        function renderStats() {
+            const total = allQuestions.length;
+            const pending = allQuestions.filter(q => q.status === 'pending').length;
+            document.getElementById('stats-total').innerText = total;
+            document.getElementById('stats-pending').innerText = pending;
+        }
+
+        function renderList() {
+            const container = document.getElementById('question-list');
+            if (allQuestions.length === 0) {
+                container.innerHTML = `<div class="text-center py-10 bg-black/10 rounded-2xl border border-white/5"><p class="text-slate-500 italic text-sm">No questions yet...</p></div>`;
+                return;
+            }
+            container.innerHTML = allQuestions.map(q => `
+                <div class="glass p-4 rounded-xl flex justify-between items-start gap-3 transition-all ${q.status === 'answered' ? 'opacity-40 bg-black/20' : 'bg-white/5'}">
+                    <p class="text-sm font-medium leading-relaxed ${q.status === 'answered' ? 'line-through text-slate-400' : 'text-white'}">${q.text}</p>
+                    <button onclick="deleteQ(${q.id})" class="text-white/20 hover:text-red-500 transition-colors p-1 shrink-0"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                </div>
+            `).join('');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.innerHTML = `<i data-lucide="check-circle-2" class="w-6 h-6 text-emerald-600"></i><span>${msg}</span>`;
+            t.classList.remove('hidden', 'border-red-500');
+            t.classList.add('flex', 'border-emerald-500');
+            setTimeout(() => { t.classList.add('hidden'); t.classList.remove('flex'); }, 3000);
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        function errorToast(msg) {
+            const t = document.getElementById('toast');
+            t.innerHTML = `<i data-lucide="alert-circle" class="w-6 h-6 text-red-600"></i><span>${msg}</span>`;
+            t.classList.remove('hidden', 'border-emerald-500');
+            t.classList.add('flex', 'border-red-500');
+            setTimeout(() => { t.classList.add('hidden'); t.classList.remove('flex'); }, 3000);
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        // --- FX ---
+        function createSnow() {
+            const container = document.getElementById('snow-container');
+            const count = 30;
+            for (let i = 0; i < count; i++) {
+                const flake = document.createElement('div');
+                flake.className = 'snow-flake';
+                flake.innerHTML = '❄';
+                flake.style.left = Math.random() * 100 + 'vw';
+                flake.style.animationDuration = (Math.random() * 10 + 10) + 's';
+                flake.style.animationDelay = (Math.random() * 10) + 's';
+                flake.style.opacity = Math.random() * 0.3;
+                flake.style.fontSize = (Math.random() * 20 + 10) + 'px';
+                container.appendChild(flake);
+            }
+        }
+    </script>
 </body>
 
 </html>
