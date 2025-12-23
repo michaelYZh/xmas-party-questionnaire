@@ -469,11 +469,14 @@
 
         function renderList() {
             const container = document.getElementById('question-list');
-            if (allQuestions.length === 0) {
-                container.innerHTML = `<div class="text-center py-10 bg-black/10 rounded-2xl border border-white/5"><p class="text-slate-500 italic text-sm">No questions yet...</p></div>`;
+            // FILTER: Only show Opened or Answered
+            const visibleQuestions = allQuestions.filter(q => q.status === 'opened' || q.status === 'answered');
+
+            if (visibleQuestions.length === 0) {
+                container.innerHTML = `<div class="text-center py-10 bg-black/10 rounded-2xl border border-white/5"><p class="text-slate-500 italic text-sm">Waiting for Santa to pick a question...</p></div>`;
                 return;
             }
-            container.innerHTML = allQuestions.map(q => `
+            container.innerHTML = visibleQuestions.map(q => `
                 <div class="glass p-4 rounded-xl flex justify-between items-start gap-3 transition-all ${q.status === 'answered' ? 'opacity-40 bg-black/20' : 'bg-white/5'}">
                     <p class="text-sm font-medium leading-relaxed ${q.status === 'answered' ? 'line-through text-slate-400' : 'text-white'}">${q.text}</p>
                     <button onclick="deleteQ(${q.id})" class="text-white/20 hover:text-red-500 transition-colors p-1 shrink-0"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
