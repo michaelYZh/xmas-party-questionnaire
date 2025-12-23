@@ -14,6 +14,41 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
+        /* Northern Lights Background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(125deg, #0b2d1c 0%, #064035 30%, #1e1b4b 60%, #312e81 100%);
+            background-size: 300% 300%;
+            z-index: -5;
+            animation: aurora 10s ease infinite alternate;
+            opacity: 0.8;
+        }
+
+        @keyframes aurora {
+            0% {
+                background-position: 0% 50%;
+                opacity: 0.6;
+            }
+
+            100% {
+                background-position: 100% 50%;
+                opacity: 1;
+            }
+        }
+
+        /* Festive Typography Overrides */
+        h1,
+        h2,
+        h3,
+        .font-festive {
+            font-family: var(--font-display);
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: #0b2d1c;
@@ -25,23 +60,53 @@
         .snow-flake {
             position: absolute;
             top: -20px;
-            color: rgba(255, 255, 255, 0.2);
+            color: rgba(255, 255, 255, 0.85);
+            /* Increased Visibility */
             pointer-events: none;
-            z-index: 0;
+            z-index: 1;
+            /* Above background */
+            font-weight: 900;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.8);
             animation: fall linear infinite;
         }
 
         @keyframes fall {
             to {
-                transform: translateY(105vh);
+                transform: translateY(105vh) rotate(360deg);
             }
         }
 
         .glass {
-            background: rgba(255, 255, 255, 0.08);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* List Item Transitions */
+        .list-item {
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            max-height: 200px;
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .list-item.removing {
+            max-height: 0;
+            opacity: 0;
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+            transform: scale(0.9);
+            overflow: hidden;
+            border: none;
+        }
+
+        .glass-panel {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.02) 100%);
         }
 
         .shake {
@@ -501,6 +566,53 @@
             window.switchView('host');
         };
 
+        window.maskQ = async (id) => {
+            // ANIMATE REMOVAL
+            const el = document.getElementById(`q-${id}`);
+            if (el) el.classList.add('removing');
+
+            setTimeout(async () => {
+                // Optimistic Update
+                const q = allQuestions.find(q => q.id === id);
+                if (q) {
+                    const oldStatus = q.status;
+                    q.status = 'pending';
+                    renderStats();
+                    renderList(); // Re-render (item will be gone)
+
+                    const { error } = await supabase.from('questions').update({ status: 'pending' }).eq('id', id);
+                    if (error) {
+                        console.error("Mask Error:", error);
+                        q.status = oldStatus;
+                        renderStats();
+                        renderList();
+                    }
+                }
+            }, 500); // Wait for transition
+        };
+
+        window.deleteQ = async (id) => {
+            if (confirm("Are you sure?")) {
+                const el = document.getElementById(`q-${id}`);
+                if (el) el.classList.add('removing');
+
+                setTimeout(async () => {
+                    const originalList = [...allQuestions];
+                    allQuestions = allQuestions.filter(q => q.id !== id);
+                    renderStats();
+                    renderList();
+
+                    const { error } = await supabase.from('questions').delete().eq('id', id);
+                    if (error) {
+                        console.error("Delete Error:", error);
+                        allQuestions = originalList;
+                        renderStats();
+                        renderList();
+                    }
+                }, 500);
+            }
+        };
+
         // === UI HELPERS ===
         function renderStats() {
             const total = allQuestions.length;
@@ -511,16 +623,17 @@
 
         function renderList() {
             const container = document.getElementById('question-list');
-            // FILTER: Only show Opened or Answered
             const visibleQuestions = allQuestions.filter(q => q.status === 'opened' || q.status === 'answered');
 
             if (visibleQuestions.length === 0) {
                 container.innerHTML = `<div class="text-center py-10 bg-black/10 rounded-2xl border border-white/5"><p class="text-slate-500 italic text-sm">Waiting for Santa to pick a question...</p></div>`;
                 return;
             }
-            // Staggered Animation
-            container.innerHTML = visibleQuestions.map((q, i) => `
-                <div class="glass p-4 rounded-xl flex justify-between items-start gap-3 transition-all animate__animated animate__fadeInUp ${q.status === 'answered' ? 'opacity-40 bg-black/20' : 'bg-white/5'}" style="animation-delay: ${i * 100}ms">
+
+            // Note: Removed staggered animation to prevent list resetting visual on updates.
+            // Using ID for key tracking
+            container.innerHTML = visibleQuestions.map(q => `
+                <div id="q-${q.id}" class="list-item glass p-4 rounded-xl flex justify-between items-start gap-3 ${q.status === 'answered' ? 'opacity-40 bg-black/20' : 'bg-white/5'}">
                     <p class="text-sm font-medium leading-relaxed ${q.status === 'answered' ? 'line-through text-slate-400' : 'text-white'}">${q.text}</p>
                     <div class="flex items-center gap-2 shrink-0">
                          <button onclick="maskQ(${q.id})" title="Put back in bag" class="text-white/20 hover:text-yellow-400 transition-colors p-1"><i data-lucide="eye-off" class="w-4 h-4"></i></button>
